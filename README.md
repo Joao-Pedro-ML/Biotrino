@@ -22,7 +22,7 @@ Este projeto realiza a aquisição de sinais de **EMG (2 canais)**, **FSR** e de
 
 ## 📷 Interface
 
-![screenshot opcional aqui, se desejar adicionar](#)
+![Interface](img/screenshot.png)
 
 ---
 
