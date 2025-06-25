@@ -30,7 +30,27 @@ Este projeto realiza a aquisição de sinais de **EMG (2 canais)**, **FSR** e de
 
 - Python 3.8 ou superior
 
-### Instalar dependências
+---
+
+## 🚀 Passo a passo para rodar o projeto
+
+### 1. Clonar o repositório (se ainda não fez)
 
 ```bash
-pip install -r requirements.txt
+git clone <url-do-repositorio>
+cd <nome-da-pasta>
+
+### 2. Criar um ambiente virtual (recomendado)
+
+- No Windows (PowerShell)
+
+```bash
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+
+- No Windows (Prompt de Comando)
+```bash
+python -m venv venv
+venv\Scripts\activate.bat
+
+
