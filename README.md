@@ -39,6 +39,7 @@ Este projeto realiza a aquisição de sinais de **EMG (2 canais)**, **FSR** e de
 ```bash
 git clone <url-do-repositorio>
 cd <nome-da-pasta>
+```
 
 ### 2. Criar um ambiente virtual (recomendado)
 
@@ -47,10 +48,11 @@ cd <nome-da-pasta>
 ```bash
 python -m venv venv
 .\venv\Scripts\Activate.ps1
+```
 
 - No Windows (Prompt de Comando)
+
 ```bash
 python -m venv venv
 venv\Scripts\activate.bat
-
-
+```
