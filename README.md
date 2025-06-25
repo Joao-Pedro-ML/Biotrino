@@ -43,16 +43,32 @@ cd <nome-da-pasta>
 
 ### 2. Criar um ambiente virtual (recomendado)
 
-- No Windows (PowerShell)
+- No Windows (PowerShell):
 
 ```bash
 python -m venv venv
 .\venv\Scripts\Activate.ps1
 ```
 
-- No Windows (Prompt de Comando)
+- No Windows (Prompt de Comando):
 
 ```bash
 python -m venv venv
 venv\Scripts\activate.bat
+```
+
+- No Linux/MacOS:
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
+
+### 3. Instalar dependências
+```bash
+pip install -r requirements.txt
+```
+
+### 4. Executar
+```bash
+python main.py
 ```
