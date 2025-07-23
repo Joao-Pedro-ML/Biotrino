@@ -8,6 +8,14 @@ from threading import Lock
 from serial_manager import SerialManager
 from optical_interrogator import OpticalInterrogator
 
+import ctypes
+
+user32 = ctypes.windll.user32
+screen_width, screen_height = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
+win_width = int(screen_width * 0.9)
+win_height = int(screen_height * 0.9)
+
+
 class MainInterface:
     def __init__(self):
         self.serial_manager = SerialManager(
@@ -31,7 +39,9 @@ class MainInterface:
         self.save_opt_data = []
 
         dpg.create_context()
-        dpg.create_viewport(title='BioTrino', width=1920, height=1280)
+        dpg.create_viewport(title='BioTrino', width=win_width, height=win_height)
+        dpg.set_viewport_pos([(screen_width - win_width)//2, (screen_height - win_height)//2])
+
 
     def list_serial_ports(self):
         return [p.device for p in serial.tools.list_ports.comports()]
@@ -66,7 +76,7 @@ class MainInterface:
             self.update_led("led_emg", True)
             self.update_led("led_fsr", True)
 
-    def process_optical_data(self, t, wavelengths):
+    def process_optical_data(self, t, wavelengths, label="Canal Óptico"):
         with self.lock:
             self.time_buffer_opt.append(t)
             self.opt_wavelengths_buffer.append(wavelengths)
@@ -76,22 +86,23 @@ class MainInterface:
                 self.time_buffer_opt.pop(0)
                 self.opt_wavelengths_buffer.pop(0)
 
-            for i in range(3):
-                ys = [row[i] for row in self.opt_wavelengths_buffer]
-                dpg.set_value(f"opt_line_{i}", [self.time_buffer_opt, ys])
+            ys = [row[0] for row in self.opt_wavelengths_buffer]
+            dpg.set_value("opt_line_0", [self.time_buffer_opt, ys])
+            dpg.configure_item("opt_line_0", label=label)
 
             if len(self.time_buffer_opt) > 2:
                 xmin = self.time_buffer_opt[-1] - self.window_ms
                 xmax = self.time_buffer_opt[-1]
                 dpg.set_axis_limits("x_axis_opt", xmin, xmax)
 
-                all_vals = [val for row in self.opt_wavelengths_buffer for val in row]
-                ymin = min(all_vals)
-                ymax = max(all_vals)
+                ymin = min(ys)
+                ymax = max(ys)
                 margin = 0.1 * (ymax - ymin)
                 dpg.set_axis_limits("y_axis_opt", ymin - margin, ymax + margin)
 
             self.update_led("led_opt", True)
+
+
 
     def serial_error(self, msg):
         print(msg)
@@ -136,30 +147,70 @@ class MainInterface:
         with dpg.drawlist(width=20, height=20, tag=tag):
             dpg.draw_circle((10, 10), 8, fill=(255, 0, 0, 255), tag=tag + "_circle")
 
+
+    def show_available_channels(self, sender, app_data=None):
+        canais = self.optical_simulator.get_available_wavelengths()
+        if not canais:
+            dpg.set_value("canais_disponiveis", "Nenhum dado recebido ainda.")
+        else:
+            texto = "Wavelengths disponíveis:\n" + "\n".join(f"{c:.3f} nm" for c in canais)
+            dpg.set_value("canais_disponiveis", texto)
+        dpg.configure_item("canais_disponiveis", show=True)
+
+
+
     def build_gui(self):
         with dpg.window(label="Aquisição", width=1920, height=1280):
-            with dpg.group(horizontal=True):  # Linha 1
-                dpg.add_button(label="Salvar e Sair", callback=self.save_and_exit)
-                dpg.add_slider_int(label="Janela (ms)", default_value=self.window_ms, min_value=100, max_value=10000,
-                                callback=self.set_window_ms, width=250)
-
             with dpg.group(horizontal=True):
-                dpg.add_text("Porta Serial:")
-                dpg.add_combo(self.list_serial_ports(), width=120, tag="porta_serial_combo",
-                            callback=lambda s, a: dpg.set_value("porta_selecionada_valor", a))
-                dpg.add_text("", tag="porta_selecionada_valor", show=False)
+                # Coluna 1
+                with dpg.group():
+                    with dpg.group(horizontal=True):
+                        self.create_led("led_emg")
+                        dpg.add_text("Status EMG")
 
-                dpg.add_button(label="Iniciar Coleta", callback=self.start_serial_acquisition)
+                    with dpg.group(horizontal=True):
+                        self.create_led("led_fsr")
+                        dpg.add_text("Status FSR")
 
-            with dpg.group(horizontal=True):  # Linha 3
-                dpg.add_text("Status EMG:")
-                self.create_led("led_emg")
-                dpg.add_text("Status FSR:")
-                self.create_led("led_fsr")
-                dpg.add_text("Status Interrogador Óptico:")
-                self.create_led("led_opt")
+                    with dpg.group(horizontal=True):
+                        self.create_led("led_opt")
+                        dpg.add_text("Status Interrogador Óptico")
+
+                dpg.add_spacer(width=10)
+                # Coluna 2
+                with dpg.group():
+                    dpg.add_slider_int(label="Janela (ms)", default_value=self.window_ms, min_value=100, max_value=10000,
+                                    callback=self.set_window_ms, width=250)
+                    dpg.add_text("Canal FBG:")
+                    dpg.add_input_int(tag="canal_fbg", default_value=0, width=80)
+
+                dpg.add_spacer(width=10)
+                # Coluna 3
+                with dpg.group():
+                    dpg.add_text("Porta Serial:")
+                    dpg.add_combo(self.list_serial_ports(), width=120, tag="porta_serial_combo",
+                                callback=lambda s, a: dpg.set_value("porta_selecionada_valor", a))
+                    dpg.add_text("", tag="porta_selecionada_valor", show=False)
+                    dpg.add_button(label="Iniciar Coleta", callback=self.start_serial_acquisition)
+
+                # Coluna 4
+                dpg.add_spacer(height=10)
+                with dpg.group(horizontal=True):
+                    dpg.add_text("IP do Interrogador:")
+                    dpg.add_input_text(tag="opt_ip", default_value="10.4.6.15", width=150)
+
+                    dpg.add_text("Porta:")
+                    dpg.add_input_int(tag="opt_porta", default_value=1852, width=100, min_value=0, max_value=65535)
+
+                dpg.add_spacer(width=10)
+                with dpg.group():
+                    dpg.add_button(label="Ver canais disponíveis", tag="btn_ver_canais", callback=self.show_available_channels)
+
+                    dpg.add_text("", tag="canais_disponiveis", show=False, wrap=300)
+
 
             dpg.add_separator()
+
 
             with dpg.group(horizontal=True):
                 with dpg.group():
@@ -220,13 +271,30 @@ class MainInterface:
 
     def run(self):
         self.build_gui()
+        try:
+            target_wave = float(dpg.get_value("wavelength_input"))
+            self.optical_simulator.target_wavelength = target_wave
+        except Exception as e:
+            print(f"[Erro] Comprimento de onda inválido")
+        
+
+        try:
+            ip = dpg.get_value("opt_ip")
+            porta = int(dpg.get_value("opt_porta"))
+            canal = int(dpg.get_value("canal_fbg"))
+            self.optical_simulator.host = ip
+            self.optical_simulator.port = porta
+            self.optical_simulator.channel_index = canal
+        except Exception:
+            print("[Aviso] Erro ao configurar IP, porta ou canal.")
+            self.optical_simulator.host = "10.4.6.15"
+            self.optical_simulator.port = 1852
+            self.optical_simulator.channel_index = 0
+
         self.optical_simulator.start()
+
+
+
         dpg.show_viewport()
-        # dpg.bind_item_theme("emg1_series", self.green_theme)
-        # dpg.bind_item_theme("emg2_series", self.green_theme)
-        # dpg.bind_item_theme("fsr1_series", self.pink_theme)
-        # dpg.bind_item_theme("fsr2_series", self.pink_theme)
-        # for i in range(3):
-        #     dpg.bind_item_theme(f"opt_line_{i}", self.blue_theme)
         dpg.start_dearpygui()
         dpg.destroy_context()
