@@ -1,6 +1,6 @@
 # Biotrino
 
-Este projeto realiza a aquisição de sinais de **EMG (2 canais)**, **FSR** e de um **interrogador óptico** em tempo real, exibindo os gráficos em uma interface gráfica moderna usando [Dear PyGui](https://github.com/hoffstadt/DearPyGui).
+Este projeto realiza a aquisição de sinais de **EMG (2 canais)** e **FSR** em tempo real, exibindo os gráficos em uma interface gráfica moderna usando [Dear PyGui](https://github.com/hoffstadt/DearPyGui).
 
 ---
 
