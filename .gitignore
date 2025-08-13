@@ -10,3 +10,5 @@ dpg_env/
 Designs 3D/
 dpg_env/
 OldVersions/
+interface_with_interr.py
+optical_interrogator.py
