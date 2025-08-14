@@ -4,7 +4,6 @@ Este projeto realiza a aquisição de sinais de **EMG (2 canais)** e **FSR** em 
 
 ---
 ## 📥 Download
-[![Baixar Executável](https://img.shields.io/badge/Download-EXE-blue?style=for-the-badge)]([https://github.com/Joao-Pedro-ML/Biotrino/releases/latest/download/main.exe](https://github.com/Joao-Pedro-ML/Biotrino/releases/latest/download/main.exe))
 
 [![Baixar Executável](https://img.shields.io/badge/Download-EXE-blue?style=for-the-badge)](https://github.com/Joao-Pedro-ML/Biotrino/releases/latest/download/main.exe)
 ---
