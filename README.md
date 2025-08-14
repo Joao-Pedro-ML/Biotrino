@@ -3,10 +3,6 @@
 Este projeto realiza a aquisição de sinais de **EMG (2 canais)** e **FSR** em tempo real, exibindo os gráficos em uma interface gráfica moderna usando [Dear PyGui](https://github.com/hoffstadt/DearPyGui).
 
 ---
-## 📥 Download
-
-[![Baixar Executável](https://img.shields.io/badge/Download-EXE-blue?style=for-the-badge)](https://github.com/Joao-Pedro-ML/Biotrino/releases/latest/download/main.exe)
----
 
 ## 🖥️ Funcionalidades
 
