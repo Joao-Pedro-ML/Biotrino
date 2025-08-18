@@ -1,22 +1,21 @@
 # Biotrino
 
-Este projeto realiza a aquisição de sinais de **EMG (2 canais)**, **FSR** e de um **interrogador óptico** em tempo real, exibindo os gráficos em uma interface gráfica moderna usando [Dear PyGui](https://github.com/hoffstadt/DearPyGui).
+This project acquires sEMG (2 channels) and FSR signals in real time, displaying the graphs in a modern graphical interface using [Dear PyGui](https://github.com/hoffstadt/DearPyGui).
 
 ---
 
-## 🖥️ Funcionalidades
+## 🖥️ Features
 
-- Leitura serial dos sinais EMG e FSR (via ESP32 ou Arduino).
-- Simulação do interrogador óptico.
-- Interface dividida em três seções:
-  - EMG (2 canais)
-  - FSR
-  - Interrogador óptico
-- Controles para:
-  - Ajuste da janela de exibição (slider).
-  - Botão para salvar os dados em `.csv`.
-  - Indicadores visuais (LEDs) para status de comunicação.
-- Exportação de dados sincronizados em formato `.csv`.
+- Serial reading of EMG and FSR signals (via proprietary board).
+- Interface divided into three sections:
+  - EMG (2 channels)
+  - FSR (2 channels)
+  - Terminal for logs
+- Controls for:
+  - Adjusting the display window (slider).
+  - Button to save data to `.csv`.
+  - Visual indicators (LEDs) for communication status.
+  - Export of synchronized data in `.csv` format.
 
 ---
 
@@ -26,49 +25,49 @@ Este projeto realiza a aquisição de sinais de **EMG (2 canais)**, **FSR** e de
 
 ---
 
-## 📦 Requisitos
+## 📦 Requirements
 
-- Python 3.8 ou superior
+- Python 3.8 or higher
 
 ---
 
-## 🚀 Passo a passo para rodar o projeto
+## 🚀 Step-by-step guide to running the project
 
-### 1. Clonar o repositório (se ainda não fez)
+### 1. Clone the repository (if you haven't already)
 
 ```bash
-git clone <url-do-repositorio>
-cd <nome-da-pasta>
+git clone <repository-url>
+cd <folder-name>
 ```
 
-### 2. Criar um ambiente virtual (recomendado)
+### 2. Create a virtual environment (recommended)
 
-- No Windows (PowerShell):
+- On Windows (PowerShell):
 
 ```bash
 python -m venv venv
 .\venv\Scripts\Activate.ps1
 ```
 
-- No Windows (Prompt de Comando):
+- On Windows (Command Prompt):
 
 ```bash
 python -m venv venv
 venv\Scripts\activate.bat
 ```
 
-- No Linux/MacOS:
+- On Linux/MacOS:
 ```bash
 python3 -m venv venv
 source venv/bin/activate
 ```
 
-### 3. Instalar dependências
+### 3. Install dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-### 4. Executar
+### 4. Execute
 ```bash
 python main.py
 ```
