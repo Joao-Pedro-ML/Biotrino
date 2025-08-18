@@ -6,14 +6,13 @@ from threading import Lock
 from serial_manager import SerialManager
 import ctypes
 import sys
-#from terminal import update_terminal, clear_terminal, RedirectStream
 
-# Captura o tamanho da tela dinamicamente
+
 user32 = ctypes.windll.user32
 screen_width, screen_height = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
+print(screen_width, screen_height)
 win_width = int(screen_width)
 win_height = int(screen_height)
-
 
 
 class MainInterface:
@@ -39,11 +38,23 @@ class MainInterface:
         sys.stderr = self
 
         dpg.create_context()
+        
         dpg.create_viewport(title='BioTrino', width=win_width, height=win_height)
         dpg.set_viewport_pos([(screen_width - win_width)//2, (screen_height - win_height)//2])
+        
 
     def list_serial_ports(self):
         return [p.device for p in serial.tools.list_ports.comports()]
+    
+    def refresh_ports(self):
+        ports = self.list_serial_ports()
+        dpg.configure_item("porta_serial_combo", items=ports)
+        if ports:
+            dpg.set_value("porta_serial_combo", ports[0])
+            dpg.set_value("porta_selecionada_valor", ports[0])
+        else:
+            dpg.set_value("porta_serial_combo", "")
+            dpg.set_value("porta_selecionada_valor", "")
 
     def process_serial_data(self, t, emg1, emg2, fsr1, fsr2):
         with self.lock:
@@ -162,6 +173,8 @@ class MainInterface:
                 with dpg.group():
                     dpg.add_slider_int(label="Janela (ms)", default_value=self.window_ms, min_value=100, max_value=10000,
                                        callback=self.set_window_ms, width=250)
+                    dpg.add_button(label="Iniciar Coleta", callback=self.start_serial_acquisition)
+                    dpg.add_button(label="Salvar e Sair", callback=self.save_and_exit)
 
                 dpg.add_spacer(width=10)
                 # Coluna 3
@@ -170,33 +183,34 @@ class MainInterface:
                     dpg.add_combo(self.list_serial_ports(), width=120, tag="porta_serial_combo",
                                   callback=lambda s, a: dpg.set_value("porta_selecionada_valor", a))
                     dpg.add_text("", tag="porta_selecionada_valor", show=False)
-                    dpg.add_button(label="Iniciar Coleta", callback=self.start_serial_acquisition)
-                    dpg.add_button(label="Salvar e Sair", callback=self.save_and_exit)
+                    dpg.add_button(label="Atualizar Portas", callback=lambda: self.refresh_ports())
+                    # dpg.add_button(label="Iniciar Coleta", callback=self.start_serial_acquisition)
+                    # dpg.add_button(label="Salvar e Sair", callback=self.save_and_exit)
 
             dpg.add_separator()
 
             with dpg.group(horizontal=True):
                 with dpg.group():
-                    with dpg.plot(label="EMG1", height=int(win_height * 0.3), width=int(win_width * 0.55)):
+                    with dpg.plot(label="EMG1", height=int(win_height * 0.25), width=int(win_width * 0.45)):
                         dpg.add_plot_axis(dpg.mvXAxis, label="Tempo (ms)", tag="x_axis_emg1")
                         with dpg.plot_axis(dpg.mvYAxis, label="EMG1 (ADC)", tag="y_axis_emg1"):
                             dpg.set_axis_limits("y_axis_emg1", 0.0, 4095.0)
                             dpg.add_line_series([], [], label="EMG1", tag="emg1_series", parent="y_axis_emg1")
 
-                    with dpg.plot(label="EMG2", height=int(win_height * 0.3), width=int(win_width * 0.55)):
+                    with dpg.plot(label="EMG2", height=int(win_height * 0.25), width=int(win_width * 0.45)):
                         dpg.add_plot_axis(dpg.mvXAxis, label="Tempo (ms)", tag="x_axis_emg2")
                         with dpg.plot_axis(dpg.mvYAxis, label="EMG2 (ADC)", tag="y_axis_emg2"):
                             dpg.set_axis_limits("y_axis_emg2", 0.0, 4095.0)
                             dpg.add_line_series([], [], label="EMG2", tag="emg2_series", parent="y_axis_emg2")
 
                 with dpg.group():
-                    with dpg.plot(label="FSR1", height=int(win_height * 0.3), width=int(win_width * 0.40)):
+                    with dpg.plot(label="FSR1", height=int(win_height * 0.25), width=int(win_width * 0.30)):
                         dpg.add_plot_axis(dpg.mvXAxis, label="Tempo (ms)", tag="x_axis_fsr1")
                         with dpg.plot_axis(dpg.mvYAxis, label="FSR1 (ADC)", tag="y_axis_fsr1"):
                             dpg.set_axis_limits("y_axis_fsr1", -10.0, 2500.0)
                             dpg.add_line_series([], [], label="FSR1", tag="fsr1_series", parent="y_axis_fsr1")
 
-                    with dpg.plot(label="FSR2", height=int(win_height * 0.3), width=int(win_width * 0.40)):
+                    with dpg.plot(label="FSR2", height=int(win_height * 0.25), width=int(win_width * 0.30)):
                         dpg.add_plot_axis(dpg.mvXAxis, label="Tempo (ms)", tag="x_axis_fsr2")
                         with dpg.plot_axis(dpg.mvYAxis, label="FSR2 (ADC)", tag="y_axis_fsr2"):
                             dpg.set_axis_limits("y_axis_fsr2", -10.0, 2500.0)
@@ -206,7 +220,7 @@ class MainInterface:
             dpg.add_text("Terminal de Logs:")
             dpg.add_button(label="Limpar Terminal", callback=self.clear_terminal)
 
-            with dpg.child_window(tag="terminal_child", autosize_x=True, height=win_height * 0.15, border=True):
+            with dpg.child_window(tag="terminal_child", autosize_x=True, height=win_height * 0.1, border=True):
                 pass
 
         # Temas
