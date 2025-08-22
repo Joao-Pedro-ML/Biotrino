@@ -6,11 +6,11 @@ from threading import Lock
 from serial_manager import SerialManager
 import ctypes
 import sys
-
+import os
 
 user32 = ctypes.windll.user32
 screen_width, screen_height = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
-print(screen_width, screen_height)
+#print(screen_width, screen_height)
 win_width = int(screen_width)
 win_height = int(screen_height)
 
@@ -107,21 +107,29 @@ class MainInterface:
         else:
             print("[AVISO] Nenhuma porta selecionada.")
 
-    def save_and_exit(self):
-        print("[INFO] Encerrando e salvando dados...")
+    def save(self):
+        print("[INFO] Salvando dados...")
+        self.update_led("led_emg", False)
+        self.update_led("led_fsr", False)
         self.serial_manager.stop()
         time.sleep(1)
 
+        output_dir = 'out_data'
+        
+        os.makedirs(output_dir, exist_ok=True)
+
         filename = time.strftime("dados_emg_%Y%m%d_%H%M%S.csv")
-        with open(filename, 'w', newline='') as f:
+        filepath = os.path.join(output_dir, filename)
+
+        with open(filepath, 'w', newline='') as f:
             writer = csv.writer(f)
             writer.writerow(['timestamp_ms', 'emg1_raw', 'emg2_raw', 'fsr1', 'fsr2'])
             with self.lock:
                 for row_emg in self.save_data:
                     writer.writerow(row_emg)
 
-        print(f"[DADOS SALVOS] Arquivo: {filename}")
-        dpg.stop_dearpygui()
+        print(f"[DADOS SALVOS] Arquivo: {filepath}")
+        #dpg.stop_dearpygui()
 
     def create_led(self, tag):
         with dpg.drawlist(width=20, height=20, tag=tag):
@@ -174,7 +182,7 @@ class MainInterface:
                     dpg.add_slider_int(label="Janela (ms)", default_value=self.window_ms, min_value=100, max_value=10000,
                                        callback=self.set_window_ms, width=250)
                     dpg.add_button(label="Iniciar Coleta", callback=self.start_serial_acquisition)
-                    dpg.add_button(label="Salvar e Sair", callback=self.save_and_exit)
+                    dpg.add_button(label="Salvar Dados", callback=self.save)
 
                 dpg.add_spacer(width=10)
                 # Coluna 3
@@ -207,13 +215,13 @@ class MainInterface:
                     with dpg.plot(label="FSR1", height=int(win_height * 0.25), width=int(win_width * 0.30)):
                         dpg.add_plot_axis(dpg.mvXAxis, label="Tempo (ms)", tag="x_axis_fsr1")
                         with dpg.plot_axis(dpg.mvYAxis, label="FSR1 (ADC)", tag="y_axis_fsr1"):
-                            dpg.set_axis_limits("y_axis_fsr1", -10.0, 2500.0)
+                            dpg.set_axis_limits("y_axis_fsr1", -10.0, 100.0)
                             dpg.add_line_series([], [], label="FSR1", tag="fsr1_series", parent="y_axis_fsr1")
 
                     with dpg.plot(label="FSR2", height=int(win_height * 0.25), width=int(win_width * 0.30)):
                         dpg.add_plot_axis(dpg.mvXAxis, label="Tempo (ms)", tag="x_axis_fsr2")
                         with dpg.plot_axis(dpg.mvYAxis, label="FSR2 (ADC)", tag="y_axis_fsr2"):
-                            dpg.set_axis_limits("y_axis_fsr2", -10.0, 2500.0)
+                            dpg.set_axis_limits("y_axis_fsr2", -10.0, 100.0)
                             dpg.add_line_series([], [], label="FSR2", tag="fsr2_series", parent="y_axis_fsr2")
 
             dpg.add_separator()
