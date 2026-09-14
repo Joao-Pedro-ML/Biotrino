@@ -12,3 +12,4 @@ dpg_env/
 OldVersions/
 interface_with_interr.py
 optical_interrogator.py
+test/

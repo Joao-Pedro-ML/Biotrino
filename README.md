@@ -13,9 +13,11 @@ This project acquires sEMG (2 channels) and FSR signals in real time, displaying
   - Terminal for logs
 - Controls for:
   - Adjusting the display window (slider).
-  - Button to save data to `.csv`.
-  - Visual indicators (LEDs) for communication status.
-  - Export of synchronized data in `.csv` format.
+  - Connecting and disconnecting the acquisition board safely.
+  - Starting and stopping an incrementally saved `.csv` recording.
+  - Monitoring the actual sample rate, invalid packets and lost samples.
+  - Pausing or autoscaling plots without interrupting acquisition.
+  - Identifying each participant or experimental session.
 
 ---
 
@@ -71,3 +73,20 @@ pip install -r requirements.txt
 ```bash
 python main.py
 ```
+
+### 5. Acquisition workflow
+
+1. Upload `FSR_EMG/src/main.cpp` to the ESP32.
+2. Select the board serial port and keep the baud rate at `921600`.
+3. Click **Conectar** and wait for **Recebendo dados**.
+4. Optionally enter a participant/session identifier.
+5. Click **Iniciar coleta**. Data is written continuously to `out_data`.
+6. Click **Parar e salvar** before disconnecting the board.
+
+The current firmware sends six columns: sample number, ESP32 timestamp in
+microseconds, EMG1, EMG2, FSR1 and FSR2. The sample number lets the interface
+report missed acquisition cycles. Four-column legacy firmware remains readable,
+but it cannot provide device timestamps or loss detection.
+
+CSV files start with metadata lines prefixed by `#`. When loading them with
+pandas, use `pandas.read_csv(path, comment="#")`.
