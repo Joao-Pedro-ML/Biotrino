@@ -19,8 +19,12 @@ from serial_manager import SerialManager
 user32 = ctypes.windll.user32
 SCREEN_WIDTH = user32.GetSystemMetrics(0)
 SCREEN_HEIGHT = user32.GetSystemMetrics(1)
-WINDOW_WIDTH = max(1100, SCREEN_WIDTH)
-WINDOW_HEIGHT = max(720, SCREEN_HEIGHT)
+DESIGN_WIDTH = 1920
+DESIGN_HEIGHT = 1080
+MIN_WINDOW_WIDTH = 960
+MIN_WINDOW_HEIGHT = 640
+WINDOW_WIDTH = max(MIN_WINDOW_WIDTH, int(SCREEN_WIDTH * 0.95))
+WINDOW_HEIGHT = max(MIN_WINDOW_HEIGHT, int(SCREEN_HEIGHT * 0.90))
 
 
 class MainInterface:
@@ -67,6 +71,7 @@ class MainInterface:
         self.plot_dirty = False
         self.last_plot_update = 0.0
         self.last_stats_update = 0.0
+        self.last_layout_size = None
 
         self.port_map = {}
         self.metadata = {}
@@ -95,8 +100,16 @@ class MainInterface:
             title="BioTrino - Aquisicao EMG e FSR",
             width=WINDOW_WIDTH,
             height=WINDOW_HEIGHT,
+            min_width=MIN_WINDOW_WIDTH,
+            min_height=MIN_WINDOW_HEIGHT,
+            resizable=True,
         )
-        dpg.set_viewport_pos((0, 0))
+        dpg.set_viewport_pos(
+            (
+                max(0, (SCREEN_WIDTH - WINDOW_WIDTH) // 2),
+                max(0, (SCREEN_HEIGHT - WINDOW_HEIGHT) // 2),
+            )
+        )
 
     # ------------------------------------------------------------------
     # Entrada da thread serial: somente enfileira; nunca altera a GUI.
@@ -732,19 +745,114 @@ class MainInterface:
                 tag="connection_status_circle",
             )
 
+    def _on_viewport_resize(self, sender=None, app_data=None):
+        self._apply_responsive_layout()
+
+    def _apply_responsive_layout(self, width=None, height=None, force=False):
+        """Redimensiona a interface usando o tamanho util atual da janela."""
+        if not dpg.does_item_exist("main_window"):
+            return
+
+        width = int(width or dpg.get_viewport_client_width())
+        height = int(height or dpg.get_viewport_client_height())
+        if width <= 0 or height <= 0:
+            return
+        if not force and self.last_layout_size == (width, height):
+            return
+        self.last_layout_size = (width, height)
+
+        scale = min(width / DESIGN_WIDTH, height / DESIGN_HEIGHT)
+        scale = max(0.65, min(1.50, scale))
+        dpg.set_global_font_scale(scale)
+
+        margin = max(6, int(12 * scale))
+        gap = max(5, int(10 * scale))
+        available_width = max(1, width - 2 * margin)
+
+        # O painel de qualidade possui oito linhas; este minimo evita corte em
+        # telas baixas, ainda reservando espaco suficiente para os graficos.
+        top_height = max(170, int(190 * scale))
+        terminal_height = max(62, int(105 * scale))
+        footer_height = max(62, int(98 * scale))
+        plot_area_height = height - top_height - terminal_height - footer_height
+        plot_height = max(135, int((plot_area_height - 3 * gap) / 2))
+        plot_width = max(300, int((available_width - gap) / 2))
+
+        top_inner_width = max(1, available_width - 2 * margin)
+        connection_width = int(top_inner_width * 0.31)
+        session_width = int(top_inner_width * 0.38)
+        quality_width = max(
+            220, top_inner_width - connection_width - session_width - 2 * gap
+        )
+        panel_height = max(1, top_height - 2 * margin)
+
+        dpg.configure_item("top_panel", height=top_height)
+        dpg.configure_item(
+            "connection_panel", width=connection_width, height=panel_height
+        )
+        dpg.configure_item("session_panel", width=session_width, height=panel_height)
+        dpg.configure_item("quality_panel", width=quality_width, height=panel_height)
+
+        connection_content = max(180, connection_width - int(72 * scale))
+        dpg.configure_item("serial_port_combo", width=connection_content)
+        dpg.configure_item("baud_combo", width=max(110, int(160 * scale)))
+        connection_button_width = max(90, int((connection_width - gap) / 2))
+        dpg.configure_item("connect_button", width=connection_button_width)
+        dpg.configure_item("refresh_ports_button", width=connection_button_width)
+
+        session_content = max(210, session_width - int(105 * scale))
+        dpg.configure_item("session_name_input", width=session_content)
+        dpg.configure_item("window_slider", width=session_content)
+        session_buttons_width = max(225, session_width - 2 * gap)
+        dpg.configure_item(
+            "start_record_button", width=max(70, int(session_buttons_width * 0.34))
+        )
+        dpg.configure_item(
+            "stop_record_button", width=max(80, int(session_buttons_width * 0.37))
+        )
+        dpg.configure_item(
+            "new_session_button", width=max(70, int(session_buttons_width * 0.29))
+        )
+
+        for prefix in ("emg1", "emg2", "fsr1", "fsr2"):
+            dpg.configure_item(
+                "{}_plot".format(prefix), width=plot_width, height=plot_height
+            )
+
+        dpg.configure_item("file_path_text", wrap=max(200, width - int(130 * scale)))
+        dpg.configure_item("terminal_child", height=terminal_height)
+
     # ------------------------------------------------------------------
     # Construcao e ciclo da GUI
     # ------------------------------------------------------------------
     def build_gui(self):
         port_items = self._serial_port_items()
         default_port = port_items[0] if len(port_items) == 1 else ""
-        plot_width = max(480, (WINDOW_WIDTH - 48) // 2)
-        plot_height = max(230, (WINDOW_HEIGHT - 390) // 2)
+        plot_width = max(300, (WINDOW_WIDTH - 32) // 2)
+        plot_height = max(135, (WINDOW_HEIGHT - 390) // 2)
 
-        with dpg.window(tag="main_window", label="BioTrino"):
-            with dpg.child_window(height=190, border=True):
+        with dpg.window(
+            tag="main_window",
+            label="BioTrino",
+            no_scrollbar=True,
+            no_scroll_with_mouse=True,
+        ):
+            with dpg.child_window(
+                tag="top_panel",
+                height=190,
+                border=True,
+                no_scrollbar=True,
+                no_scroll_with_mouse=True,
+            ):
                 with dpg.group(horizontal=True):
-                    with dpg.group(width=410):
+                    with dpg.child_window(
+                        tag="connection_panel",
+                        width=480,
+                        height=170,
+                        border=False,
+                        no_scrollbar=True,
+                        no_scroll_with_mouse=True,
+                    ):
                         dpg.add_text("CONEXAO COM A PLACA", color=(120, 190, 255, 255))
                         with dpg.group(horizontal=True):
                             self._create_status_circle()
@@ -781,7 +889,14 @@ class MainInterface:
                             )
 
                     dpg.add_spacer(width=20)
-                    with dpg.group(width=410):
+                    with dpg.child_window(
+                        tag="session_panel",
+                        width=590,
+                        height=170,
+                        border=False,
+                        no_scrollbar=True,
+                        no_scroll_with_mouse=True,
+                    ):
                         dpg.add_text("SESSAO DE COLETA", color=(120, 190, 255, 255))
                         dpg.add_input_text(
                             label="Identificacao",
@@ -806,13 +921,14 @@ class MainInterface:
                                 width=125,
                             )
                             dpg.add_button(
-                                label="Nova sessao",
+                                label="Nova coleta",
                                 tag="new_session_button",
                                 callback=self.new_session,
                                 width=110,
                             )
                         dpg.add_slider_int(
                             label="Janela (ms)",
+                            tag="window_slider",
                             default_value=self.window_ms,
                             min_value=100,
                             max_value=10000,
@@ -824,7 +940,14 @@ class MainInterface:
                             dpg.add_checkbox(label="Autoescala Y", tag="autoscale_checkbox")
 
                     dpg.add_spacer(width=20)
-                    with dpg.group():
+                    with dpg.child_window(
+                        tag="quality_panel",
+                        width=500,
+                        height=170,
+                        border=False,
+                        no_scrollbar=True,
+                        no_scroll_with_mouse=True,
+                    ):
                         dpg.add_text("QUALIDADE DA AQUISICAO", color=(120, 190, 255, 255))
                         self._add_stat_row("Fluxo", "stream_status_text", "-")
                         self._add_stat_row("Frequencia", "sample_rate_text", "-")
@@ -865,7 +988,13 @@ class MainInterface:
             with dpg.group(horizontal=True):
                 dpg.add_text("LOG DA APLICACAO", color=(120, 190, 255, 255))
                 dpg.add_button(label="Limpar", callback=self.clear_terminal, small=True)
-            with dpg.child_window(tag="terminal_child", height=105, border=True):
+            with dpg.child_window(
+                tag="terminal_child",
+                height=105,
+                border=True,
+                no_scrollbar=True,
+                no_scroll_with_mouse=True,
+            ):
                 pass
 
         dpg.set_primary_window("main_window", True)
@@ -888,7 +1017,12 @@ class MainInterface:
         x_axis = "x_axis_{}".format(prefix)
         y_axis = "y_axis_{}".format(prefix)
         series = "{}_series".format(prefix)
-        with dpg.plot(label=title, width=width, height=height):
+        with dpg.plot(
+            label=title,
+            tag="{}_plot".format(prefix),
+            width=width,
+            height=height,
+        ):
             dpg.add_plot_axis(dpg.mvXAxis, label="Tempo (ms)", tag=x_axis)
             with dpg.plot_axis(dpg.mvYAxis, label="{} (ADC)".format(title), tag=y_axis):
                 dpg.set_axis_limits(y_axis, 0.0, 4095.0)
@@ -910,7 +1044,9 @@ class MainInterface:
     def run(self):
         self.build_gui()
         dpg.setup_dearpygui()
+        dpg.set_viewport_resize_callback(self._on_viewport_resize)
         dpg.show_viewport()
+        self._apply_responsive_layout(force=True)
         try:
             while dpg.is_dearpygui_running():
                 now = time.perf_counter()
