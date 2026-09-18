@@ -145,7 +145,9 @@ preservado mesmo se a aplicação for interrompida.
 - **Iniciar coleta:** inicia a gravação incremental.
 - **Parar e salvar:** encerra e fecha corretamente o CSV.
 - **Nova coleta:** limpa os dados exibidos e prepara uma nova sessão.
-- **Janela (ms):** define o intervalo temporal mostrado nos gráficos.
+- **Janela temporal:** define, em segundos, o intervalo mostrado nos gráficos.
+  Arraste a barra, use `Ctrl + clique` para digitar um valor ou use os botões
+  laterais para ajustar em passos de `0,5 s`.
 - **Pausar gráficos:** interrompe somente o redesenho; a aquisição continua.
 - **Autoescala Y:** ajusta os limites verticais aos dados visíveis.
 

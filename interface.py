@@ -16,11 +16,40 @@ import serial.tools.list_ports
 from serial_manager import SerialManager
 
 
+def _enable_high_dpi_support():
+    """Permite ao Windows renderizar a janela na resolucao real de cada monitor."""
+    try:
+        # Windows 10+: ajusta o DPI novamente ao mover a janela entre monitores.
+        if ctypes.windll.user32.SetProcessDpiAwarenessContext(ctypes.c_void_p(-4)):
+            return
+    except (AttributeError, OSError):
+        pass
+
+    try:
+        # Fallback para Windows 8.1.
+        ctypes.windll.shcore.SetProcessDpiAwareness(2)
+        return
+    except (AttributeError, OSError):
+        pass
+
+    try:
+        # Fallback para versoes anteriores do Windows.
+        ctypes.windll.user32.SetProcessDPIAware()
+    except (AttributeError, OSError):
+        pass
+
+
+_enable_high_dpi_support()
 user32 = ctypes.windll.user32
 SCREEN_WIDTH = user32.GetSystemMetrics(0)
 SCREEN_HEIGHT = user32.GetSystemMetrics(1)
 DESIGN_WIDTH = 1920
 DESIGN_HEIGHT = 1080
+BASE_FONT_SIZE = 17
+FONT_SIZES = (14, 15, 16, 17, 18, 20, 22, 24, 28)
+MIN_WINDOW_MS = 100
+MAX_WINDOW_MS = 10000
+WINDOW_BUTTON_STEP_MS = 500
 MIN_WINDOW_WIDTH = 960
 MIN_WINDOW_HEIGHT = 640
 WINDOW_WIDTH = max(MIN_WINDOW_WIDTH, int(SCREEN_WIDTH * 0.95))
@@ -72,6 +101,8 @@ class MainInterface:
         self.last_plot_update = 0.0
         self.last_stats_update = 0.0
         self.last_layout_size = None
+        self.fonts = {}
+        self.active_font_size = None
 
         self.port_map = {}
         self.metadata = {}
@@ -96,6 +127,7 @@ class MainInterface:
         self.shutting_down = False
 
         dpg.create_context()
+        self._create_fonts()
         dpg.create_viewport(
             title="BioTrino - Aquisicao EMG e FSR",
             width=WINDOW_WIDTH,
@@ -110,6 +142,39 @@ class MainInterface:
                 max(0, (SCREEN_HEIGHT - WINDOW_HEIGHT) // 2),
             )
         )
+
+    def _create_fonts(self):
+        """Carrega fontes nativas em varios tamanhos, sem ampliacao interpolada."""
+        font_candidates = (
+            Path(r"C:\Windows\Fonts\segoeui.ttf"),
+            Path(r"C:\Windows\Fonts\arial.ttf"),
+        )
+        font_path = next((path for path in font_candidates if path.exists()), None)
+        if font_path is None:
+            return
+
+        with dpg.font_registry():
+            for size in FONT_SIZES:
+                with dpg.font(
+                    str(font_path), size, pixel_snapH=True
+                ) as font_id:
+                    # Inclui os caracteres acentuados usados na interface.
+                    dpg.add_font_range(0x0020, 0x00FF)
+                self.fonts[size] = font_id
+
+    def _select_native_font(self, scale):
+        """Seleciona o tamanho pronto mais proximo, evitando texto borrado."""
+        if not self.fonts:
+            return
+
+        target_size = BASE_FONT_SIZE * scale
+        font_size = min(
+            self.fonts,
+            key=lambda size: (abs(size - target_size), -size),
+        )
+        if font_size != self.active_font_size:
+            dpg.bind_font(self.fonts[font_size])
+            self.active_font_size = font_size
 
     # ------------------------------------------------------------------
     # Entrada da thread serial: somente enfileira; nunca altera a GUI.
@@ -584,8 +649,20 @@ class MainInterface:
         self.current_values = (0, 0, 0, 0)
         self.plot_dirty = True
 
-    def set_window_ms(self, sender, app_data):
-        self.window_ms = int(app_data)
+    def set_window_seconds(self, sender, app_data):
+        """Converte o valor amigavel em segundos para o intervalo interno em ms."""
+        seconds = round(float(app_data) * 10.0) / 10.0
+        self._set_window_ms(round(seconds * 1000.0))
+
+    def adjust_window(self, sender, app_data, user_data):
+        """Ajusta a janela pelos botoes laterais em passos de meio segundo."""
+        self._set_window_ms(self.window_ms + int(user_data))
+
+    def _set_window_ms(self, value):
+        self.window_ms = max(MIN_WINDOW_MS, min(MAX_WINDOW_MS, int(value)))
+        slider_value = self.window_ms / 1000.0
+        if dpg.does_item_exist("window_slider"):
+            dpg.set_value("window_slider", slider_value)
         self.plot_dirty = True
 
     # ------------------------------------------------------------------
@@ -763,7 +840,10 @@ class MainInterface:
 
         scale = min(width / DESIGN_WIDTH, height / DESIGN_HEIGHT)
         scale = max(0.65, min(1.50, scale))
-        dpg.set_global_font_scale(scale)
+        # Fontes bitmap perdem nitidez quando ampliadas por uma escala
+        # fracionaria. Mantemos escala 1:1 e trocamos o tamanho renderizado.
+        dpg.set_global_font_scale(1.0)
+        self._select_native_font(scale)
 
         margin = max(6, int(12 * scale))
         gap = max(5, int(10 * scale))
@@ -802,7 +882,15 @@ class MainInterface:
 
         session_content = max(210, session_width - int(105 * scale))
         dpg.configure_item("session_name_input", width=session_content)
-        dpg.configure_item("window_slider", width=session_content)
+        window_button_width = max(45, int(60 * scale))
+        window_label_width = max(92, int(112 * scale))
+        window_slider_width = max(
+            95,
+            session_width - window_label_width - 2 * window_button_width - 3 * gap,
+        )
+        dpg.configure_item("window_decrease_button", width=window_button_width)
+        dpg.configure_item("window_slider", width=window_slider_width)
+        dpg.configure_item("window_increase_button", width=window_button_width)
         session_buttons_width = max(225, session_width - 2 * gap)
         dpg.configure_item(
             "start_record_button", width=max(70, int(session_buttons_width * 0.34))
@@ -926,15 +1014,37 @@ class MainInterface:
                                 callback=self.new_session,
                                 width=110,
                             )
-                        dpg.add_slider_int(
-                            label="Janela (ms)",
-                            tag="window_slider",
-                            default_value=self.window_ms,
-                            min_value=100,
-                            max_value=10000,
-                            callback=self.set_window_ms,
-                            width=250,
-                        )
+                        with dpg.group(horizontal=True):
+                            dpg.add_text("Janela")
+                            dpg.add_button(
+                                label="- 0,5 s",
+                                tag="window_decrease_button",
+                                callback=self.adjust_window,
+                                user_data=-WINDOW_BUTTON_STEP_MS,
+                                width=60,
+                            )
+                            dpg.add_slider_float(
+                                tag="window_slider",
+                                default_value=self.window_ms / 1000.0,
+                                min_value=MIN_WINDOW_MS / 1000.0,
+                                max_value=MAX_WINDOW_MS / 1000.0,
+                                format="%.1f s",
+                                callback=self.set_window_seconds,
+                                clamped=True,
+                                width=250,
+                            )
+                            dpg.add_button(
+                                label="+ 0,5 s",
+                                tag="window_increase_button",
+                                callback=self.adjust_window,
+                                user_data=WINDOW_BUTTON_STEP_MS,
+                                width=60,
+                            )
+                        with dpg.tooltip("window_slider"):
+                            dpg.add_text(
+                                "Arraste para escolher entre 0,1 e 10 segundos.\n"
+                                "Use Ctrl + clique para digitar um valor."
+                            )
                         with dpg.group(horizontal=True):
                             dpg.add_checkbox(label="Pausar graficos", tag="pause_plot_checkbox")
                             dpg.add_checkbox(label="Autoescala Y", tag="autoscale_checkbox")
